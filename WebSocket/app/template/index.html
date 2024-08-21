@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #messages {
+            border: 1px solid #ccc;
+            height: 300px;
+            overflow-y: scroll;
+            padding: 10px;
+        }
+
+        #messageInput {
+            width: 80%;
+            padding: 10px;
+            margin-right: 10px;
+        }
+
+        #sendButton {
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+<h1>WebSocket Test</h1>
+<div id="messages"></div>
+<input type="text" id="messageInput" placeholder="Enter your message...">
+<button id="sendButton">Send</button>
+
+<script>
+    const socket = new WebSocket('ws://' + window.location.host + '/ws/app/');
+
+    socket.onmessage = function (event) {
+        const messages = document.getElementById('messages');
+        const message = document.createElement('div');
+        const data = JSON.parse(event.data);
+        if (data.message) {
+            message.textContent = data.message;
+        } else if (data.error) {
+            message.textContent = `Error: ${data.error}`;
+        }
+        messages.appendChild(message);
+    };
+
+    socket.onopen = function (event) {
+        const messages = document.getElementById('messages');
+        const message = document.createElement('div');
+        message.textContent = 'WebSocket is connected.';
+        messages.appendChild(message);
+    };
+
+    socket.onclose = function (event) {
+        const messages = document.getElementById('messages');
+        const message = document.createElement('div');
+        message.textContent = 'WebSocket is closed.';
+        messages.appendChild(message);
+    };
+
+    const sendButton = document.getElementById('sendButton');
+    sendButton.addEventListener('click', function () {
+        const input = document.getElementById('messageInput');
+        const message = input.value;
+        if (message.trim() !== '') {
+            socket.send(JSON.stringify({message: message}));
+            input.value = '';
+        } else {
+            const messages = document.getElementById('messages');
+            const message = document.createElement('div');
+            message.textContent = 'Error: Message cannot be empty';
+            messages.appendChild(message);
+        }
+    });
+</script>
+</body>
+</html>
