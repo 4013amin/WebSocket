@@ -28,7 +28,8 @@ DEBUG = True
 ALLOWED_HOSTS = [
     '127.0.0.1',
     'localhost',
-    '192.168.1.110',
+    '192.168.1.110',  # for windows
+    '192.168.249.101'  # for laptop
 ]
 
 # Log settings
