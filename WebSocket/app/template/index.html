@@ -35,48 +35,35 @@
 <button id="sendButton">Send</button>
 
 <script>
-    const socket = new WebSocket('ws://' + window.location.host + '/ws/app/');
+    const roomName = "lobby";  // نام اتاق
+    const chatSocket = new WebSocket(
+        'ws://' + window.location.host + '/ws/app/' + roomName + '/'
+    );
 
-    socket.onmessage = function (event) {
-        const messages = document.getElementById('messages');
-        const message = document.createElement('div');
-        const data = JSON.parse(event.data);
-        if (data.message) {
-            message.textContent = data.message;
-        } else if (data.error) {
-            message.textContent = `Error: ${data.error}`;
+    chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        document.querySelector('#messages').innerHTML += (data.message + '<br>');
+    };
+
+    chatSocket.onclose = function (e) {
+        console.error('Chat socket closed unexpectedly');
+    };
+
+    document.querySelector('#sendButton').onclick = function (e) {
+        const messageInputDom = document.querySelector('#messageInput');
+        const message = messageInputDom.value;
+        chatSocket.send(JSON.stringify({
+            'message': message
+        }));
+        messageInputDom.value = '';
+    };
+
+    document.querySelector('#messageInput').focus();
+    document.querySelector('#messageInput').onkeyup = function (e) {
+        if (e.keyCode === 13) {  // Enter key
+            document.querySelector('#sendButton').click();
         }
-        messages.appendChild(message);
     };
-
-    socket.onopen = function (event) {
-        const messages = document.getElementById('messages');
-        const message = document.createElement('div');
-        message.textContent = 'WebSocket is connected.';
-        messages.appendChild(message);
-    };
-
-    socket.onclose = function (event) {
-        const messages = document.getElementById('messages');
-        const message = document.createElement('div');
-        message.textContent = 'WebSocket is closed.';
-        messages.appendChild(message);
-    };
-
-    const sendButton = document.getElementById('sendButton');
-    sendButton.addEventListener('click', function () {
-        const input = document.getElementById('messageInput');
-        const message = input.value;
-        if (message.trim() !== '') {
-            socket.send(JSON.stringify({message: message}));
-            input.value = '';
-        } else {
-            const messages = document.getElementById('messages');
-            const message = document.createElement('div');
-            message.textContent = 'Error: Message cannot be empty';
-            messages.appendChild(message);
-        }
-    });
 </script>
 </body>
 </html>
