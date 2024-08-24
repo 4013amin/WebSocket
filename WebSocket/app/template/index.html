@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebSocket Test</title>
+    <title>WebSocket Chat</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,6 +15,7 @@
             height: 300px;
             overflow-y: scroll;
             padding: 10px;
+            margin-bottom: 10px;
         }
 
         #messageInput {
@@ -29,24 +30,40 @@
     </style>
 </head>
 <body>
-<h1>WebSocket Test</h1>
+<h1>WebSocket Chat</h1>
+
+<div>
+    <label for="usernameInput">Username:</label>
+    <input type="text" id="usernameInput" placeholder="Enter your username">
+    <label for="roomInput">Room:</label>
+    <input type="text" id="roomInput" placeholder="Enter room name">
+    <button id="connectButton">Connect</button>
+</div>
+
 <div id="messages"></div>
+
 <input type="text" id="messageInput" placeholder="Enter your message...">
 <button id="sendButton">Send</button>
 
 <script>
-    const roomName = "lobby";  // نام اتاق
-    const chatSocket = new WebSocket(
-        'ws://' + window.location.host + '/ws/app/' + roomName + '/'
-    );
+    let chatSocket;
+    document.querySelector('#connectButton').onclick = function (e) {
+        const username = document.querySelector('#usernameInput').value;
+        const roomName = document.querySelector('#roomInput').value;
 
-    chatSocket.onmessage = function (e) {
-        const data = JSON.parse(e.data);
-        document.querySelector('#messages').innerHTML += (data.message + '<br>');
-    };
+        chatSocket = new WebSocket(
+            'ws://' + window.location.host + '/ws/app/' + encodeURIComponent(roomName) + '/' + encodeURIComponent(username) + '/'
+        );
 
-    chatSocket.onclose = function (e) {
-        console.error('Chat socket closed unexpectedly');
+
+        chatSocket.onmessage = function (e) {
+            const data = JSON.parse(e.data);
+            document.querySelector('#messages').innerHTML += (data.sender + ': ' + data.message + '<br>');
+        };
+
+        chatSocket.onclose = function (e) {
+            console.error('Chat socket closed unexpectedly');
+        };
     };
 
     document.querySelector('#sendButton').onclick = function (e) {
@@ -58,9 +75,8 @@
         messageInputDom.value = '';
     };
 
-    document.querySelector('#messageInput').focus();
     document.querySelector('#messageInput').onkeyup = function (e) {
-        if (e.keyCode === 13) {  // Enter key
+        if (e.keyCode === 13) {
             document.querySelector('#sendButton').click();
         }
     };

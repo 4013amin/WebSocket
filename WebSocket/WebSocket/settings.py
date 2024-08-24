@@ -30,6 +30,7 @@ ALLOWED_HOSTS = [
     'localhost',
     '192.168.1.110',  # for windows
     '192.168.249.101'  # for laptop
+
 ]
 
 # Log settings
@@ -70,7 +71,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-
 
 # Application definition
 
