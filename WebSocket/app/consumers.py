@@ -4,6 +4,7 @@ import json
 # یک دیکشنری برای نگهداری کاربران آنلاین به ازای هر اتاق
 online_users_per_room = {}
 
+
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
