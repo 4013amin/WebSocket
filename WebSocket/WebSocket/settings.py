@@ -26,14 +26,17 @@ DEBUG = True
 
 # settings.py
 ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost',
-    '192.168.1.110',  # for windows
-    '192.168.249.101'  # for laptop
-
+    "192.168.254.101"
 ]
 
-# Log settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # یا هر پورتی که از آن استفاده می‌کنید
+    "http://127.0.0.1:3000",
+    # آی‌پی‌های دیگری که ممکن است استفاده کنید
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -45,7 +48,7 @@ LOGGING = {
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
-            'filename': os.path.join(BASE_DIR, 'django.log'),
+            'filename': '/tmp/django.log',  # تغییر مسیر به /tmp
         },
     },
     'loggers': {
@@ -62,7 +65,6 @@ LOGGING = {
     },
 }
 
-# settings.py
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
@@ -112,6 +114,8 @@ TEMPLATES = [
         },
     },
 ]
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'WebSocket.settings')
 
 # Channel
 ASGI_APPLICATION = 'WebSocket.asgi.application'

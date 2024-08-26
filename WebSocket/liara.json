@@ -1,0 +1,5 @@
+{
+  "platform": "django",
+  "app": "mywebsocket",
+  "port": 8000
+}
