@@ -26,7 +26,7 @@ DEBUG = True
 
 # settings.py
 ALLOWED_HOSTS = [
-    "192.168.1.110"
+    "192.168.1.105"
 ]
 
 CORS_ALLOWED_ORIGINS = [

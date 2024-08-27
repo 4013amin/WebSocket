@@ -27,15 +27,6 @@
         #sendButton {
             padding: 10px 20px;
         }
-
-        #users {
-            margin-bottom: 20px;
-        }
-
-        .user {
-            cursor: pointer;
-            margin-bottom: 5px;
-        }
     </style>
 </head>
 <body>
@@ -44,10 +35,10 @@
 <div>
     <label for="usernameInput">Username:</label>
     <input type="text" id="usernameInput" placeholder="Enter your username">
+    <label for="roomInput">Room Name:</label>
+    <input type="text" id="roomInput" placeholder="Enter room name">
     <button id="connectButton">Connect</button>
 </div>
-
-<div id="users"></div>
 
 <div id="messages"></div>
 
@@ -56,40 +47,29 @@
 
 <script>
     let chatSocket;
-    let currentRoom;
 
-    function connectSocket(username) {
-        currentRoom = username;
+    document.querySelector('#connectButton').onclick = function (e) {
+        const username = document.querySelector('#usernameInput').value.trim();
+        const roomName = document.querySelector('#roomInput').value.trim();
+
+        if (!username || !roomName) {
+            alert('Please enter both a username and a room name.');
+            return;
+        }
 
         // Connect to the WebSocket
         chatSocket = new WebSocket(
-            'ws://' + window.location.host + '/ws/app/' + encodeURIComponent(currentRoom) + '/' + encodeURIComponent(username) + '/'
+            'ws://' + window.location.host + '/ws/app/' + encodeURIComponent(roomName) + '/' + encodeURIComponent(username) + '/'
         );
 
         chatSocket.onmessage = function (e) {
             const data = JSON.parse(e.data);
-
-            if (data.online_users) {
-                // Update the list of online users
-                updateOnlineUsers(data.online_users);
-            } else {
-                displayMessage(data.sender, data.message);
-            }
+            displayMessage(data.sender, data.message);
         };
 
         chatSocket.onclose = function (e) {
             console.error('Chat socket closed unexpectedly');
         };
-    }
-
-    document.querySelector('#connectButton').onclick = function (e) {
-        const username = document.querySelector('#usernameInput').value.trim();
-        if (!username) {
-            alert('Please enter a username.');
-            return;
-        }
-
-        connectSocket(username);
     };
 
     document.querySelector('#sendButton').onclick = function (e) {
@@ -104,39 +84,15 @@
     };
 
     document.querySelector('#messageInput').onkeyup = function (e) {
-        if (e.keyCode === 13) {
+        if (e.keyCode === 13) {  // 13 is the enter key
             document.querySelector('#sendButton').click();
         }
     };
 
-    function joinRoom(roomName) {
-        if (chatSocket) {
-            chatSocket.close();
-        }
-
-        const username = document.querySelector('#usernameInput').value.trim();
-        connectSocket(username);
-    }
-
-    function updateOnlineUsers(users) {
-        const usersDiv = document.querySelector('#users');
-        usersDiv.innerHTML = '<h2>Online Users:</h2>';
-
-        users.forEach(user => {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'user';
-            userDiv.textContent = user;
-            userDiv.addEventListener('click', function () {
-                joinRoom(user);
-            });
-            usersDiv.appendChild(userDiv);
-        });
-    }
-
     function displayMessage(sender, message) {
         const messagesDiv = document.querySelector('#messages');
         messagesDiv.innerHTML += `${sender}: ${message}<br>`;
-        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to the bottom
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;  // Auto-scroll to the bottom
     }
 </script>
 </body>
