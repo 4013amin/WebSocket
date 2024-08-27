@@ -1,14 +1,12 @@
-from channels.generic.websocket import AsyncWebsocketConsumer
 import json
-
+from channels.generic.websocket import AsyncWebsocketConsumer
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
-        self.username = self.scope['url_route']['kwargs']['username']
-        self.room_group_name = f'chat_{self.room_name}'
+        self.room_group_name = 'chat_%s' % self.room_name
 
-        # اضافه کردن کاربر به گروه
+        # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -17,31 +15,40 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        # حذف کاربر از گروه
+        # Leave room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
 
     async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json.get('message', '')
+        if not text_data:  # چک کردن خالی بودن داده
+            return
 
-        if message:
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat_message',
-                    'message': message,
-                    'sender': self.username
-                }
-            )
+        try:
+            text_data_json = json.loads(text_data)
+        except json.JSONDecodeError:
+            # Manage the exception, maybe log it
+            return
+
+        message = text_data_json['message']
+        sender = self.scope['user'].username
+
+        # Send message to room group
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'chat_message',
+                'message': message,
+                'sender': sender
+            }
+        )
 
     async def chat_message(self, event):
         message = event['message']
         sender = event['sender']
 
-        # ارسال پیام به کاربر
+        # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
             'sender': sender
