@@ -24,16 +24,16 @@ SECRET_KEY = 'django-insecure-bwfs$u$&&3v1+2(63n+k=@$arcswx21sj!o&d=n77vd(pm9ay=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# settings.py
 ALLOWED_HOSTS = [
     "192.168.1.110",
-    "192.168.254.101"
+    "192.168.254.101",
+    "mywebsocket.liara.run",
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # یا هر پورتی که از آن استفاده می‌کنید
-    "http://127.0.0.1:3000",
-    # آی‌پی‌های دیگری که ممکن است استفاده کنید
+    "http://192.168.1.110",
+    "http://192.168.254.101",
+    "https://mywebsocket.liara.run",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -70,7 +70,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+            'hosts': [('127.0.0.1', 6379)],
         },
     },
 }
@@ -164,6 +164,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

@@ -1,5 +1,7 @@
-import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+import json
+import logging
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     # حافظه موقت برای ذخیره پیام‌ها
@@ -9,19 +11,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = 'chat_%s' % self.room_name
 
+        logging.debug(f"Attempting to connect to room: {self.room_name}")
+        logging.debug(f"Group name: {self.room_group_name}")
+
         # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
+        try:
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            await self.accept()
 
-        # Accept the WebSocket connection
-        await self.accept()
+            # ارسال پیام‌های قبلی به کاربر جدید
+            if self.room_name in self.room_messages:
+                for message_data in self.room_messages[self.room_name]:
+                    await self.send(text_data=json.dumps(message_data))
 
-        # ارسال پیام‌های قبلی به کلاینت جدید (اختیاری)
-        messages = self.room_messages.get(self.room_name, [])
-        for message in messages:
-            await self.send(text_data=json.dumps(message))
+            logging.info(f"Connection accepted for room: {self.room_name}")
+        except Exception as e:
+            logging.error(f"Error connecting to WebSocket: {e}")
+            await self.close()
 
     async def disconnect(self, close_code):
         # Leave room group
