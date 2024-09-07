@@ -1,4 +1,5 @@
 import random
+import json  # وارد کردن ماژول json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 
