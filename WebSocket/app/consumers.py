@@ -8,7 +8,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
-        self.room_group_name = 'chat_%s' % self.room_name
+        self.groups_name = f"chat_{self.room_name}"
         self.username = self.scope['url_route']['kwargs']['username']  # Getting the username
 
         if self.room_name not in self.room_users:
