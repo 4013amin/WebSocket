@@ -1,7 +1,6 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-
 class ChatConsumer(AsyncWebsocketConsumer):
     room_messages = {}
     room_users = {}
@@ -16,7 +15,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_users[self.room_name].append(self.username)
 
         await self.channel_layer.group_add(
-            self.room_group_name,
+            self.groups_name,  # Use groups_name here
             self.channel_name
         )
         await self.accept()
@@ -27,7 +26,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # Handle user disconnection
-        pass
+        # Remove the user from the room_users list and update group
+        if self.room_name in self.room_users and self.username in self.room_users[self.room_name]:
+            self.room_users[self.room_name].remove(self.username)
+            if not self.room_users[self.room_name]:
+                del self.room_users[self.room_name]
+
+        await self.channel_layer.group_discard(
+            self.groups_name,  # Use groups_name here
+            self.channel_name
+        )
 
     async def receive(self, text_data):
         # Handle receiving and broadcasting chat messages
@@ -44,7 +52,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_messages[self.room_name].append(message_data)
 
         await self.channel_layer.group_send(
-            self.room_group_name,
+            self.groups_name,  # Use groups_name here
             {
                 'type': 'chat_message',
                 'message': message,
