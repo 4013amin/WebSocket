@@ -1,7 +1,7 @@
 # urls.py
 from django.urls import path
-from .views import websocket_test
+from .views import UserListView
 
 urlpatterns = [
-    path('', websocket_test, name='websocket_test'),
+    path('users/', UserListView.as_view(), name='user-list'),
 ]
