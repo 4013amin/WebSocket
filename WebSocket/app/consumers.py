@@ -26,7 +26,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         # Handle user disconnection
-        # Remove the user from the room_users list and update group
         if self.room_name in self.room_users and self.username in self.room_users[self.room_name]:
             self.room_users[self.room_name].remove(self.username)
             if not self.room_users[self.room_name]:
@@ -38,32 +37,39 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        # Handle receiving and broadcasting chat messages
         text_data_json = json.loads(text_data)
         message = text_data_json.get('message')
         sender = text_data_json.get('sender')
+        message_type = text_data_json.get('type')
+        file_uri = text_data_json.get('file_uri')  # برای دریافت فایل
 
         message_data = {
-            'message': message,
-            'sender': sender
+            'message': message or file_uri,
+            'sender': sender,
+            'type': message_type
         }
+
         if self.room_name not in self.room_messages:
             self.room_messages[self.room_name] = []
         self.room_messages[self.room_name].append(message_data)
 
         await self.channel_layer.group_send(
-            self.groups_name,  # Use groups_name here
+            self.groups_name,
             {
                 'type': 'chat_message',
-                'message': message,
-                'sender': sender
+                'message': message or file_uri,  # فایل یا پیام متنی
+                'sender': sender,
+                'message_type': message_type
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
         sender = event['sender']
+        message_type = event.get('message_type', 'text')
+
         await self.send(text_data=json.dumps({
             'message': message,
-            'sender': sender
+            'sender': sender,
+            'type': message_type
         }))
