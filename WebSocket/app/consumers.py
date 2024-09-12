@@ -1,6 +1,7 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 
+
 class ChatConsumer(AsyncWebsocketConsumer):
     room_messages = {}
     room_users = {}
@@ -41,10 +42,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = text_data_json.get('message')
         sender = text_data_json.get('sender')
         message_type = text_data_json.get('type')
-        file_uri = text_data_json.get('file_uri')  # برای دریافت فایل
+        file_content = text_data_json.get('file_content')  # Update to file_content
 
         message_data = {
-            'message': message or file_uri,
+            'message': message or file_content,  # Use file_content if message is None
             'sender': sender,
             'type': message_type
         }
@@ -57,7 +58,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.groups_name,
             {
                 'type': 'chat_message',
-                'message': message or file_uri,  # فایل یا پیام متنی
+                'message': message or file_content,  # Use file_content if message is None
                 'sender': sender,
                 'message_type': message_type
             }

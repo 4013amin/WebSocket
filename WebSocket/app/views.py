@@ -11,7 +11,7 @@ from .serializer import UserSerializer
 
 
 class UserListView(APIView):
-    permission_classes = [IsAuthenticated]  # برای دسترسی به این API، باید کاربر احراز هویت شود
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, format=None):
         users = User.objects.all()  # لیست تمام کاربران
