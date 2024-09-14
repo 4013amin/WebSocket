@@ -1,80 +1,88 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import async_to_sync
+import logging
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
     room_messages = {}
-    room_users = {}
 
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
-        self.groups_name = f"chat_{self.room_name}"
-        self.username = self.scope['url_route']['kwargs']['username']  # Getting the username
+        self.room_group_name = f'chat_{self.room_name}'
 
-        if self.room_name not in self.room_users:
-            self.room_users[self.room_name] = []
-        self.room_users[self.room_name].append(self.username)
+        logging.debug(f"Connecting to room: {self.room_name}")
+        logging.debug(f"Group name: {self.room_group_name}")
 
-        await self.channel_layer.group_add(
-            self.groups_name,  # Use groups_name here
-            self.channel_name
-        )
-        await self.accept()
+        # Join room group
+        try:
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+            await self.accept()
 
-        if self.room_name in self.room_messages:
-            for message_data in self.room_messages[self.room_name]:
-                await self.send(text_data=json.dumps(message_data))
+            # Send previous messages to new user
+            if self.room_name in self.room_messages:
+                for message_data in self.room_messages[self.room_name]:
+                    await self.send(text_data=json.dumps(message_data))
+
+            logging.info(f"Connection accepted for room: {self.room_name}")
+        except Exception as e:
+            logging.error(f"Error connecting to WebSocket: {e}")
+            await self.close()
 
     async def disconnect(self, close_code):
-        # Handle user disconnection
-        if self.room_name in self.room_users and self.username in self.room_users[self.room_name]:
-            self.room_users[self.room_name].remove(self.username)
-            if not self.room_users[self.room_name]:
-                del self.room_users[self.room_name]
-
+        # Leave room group
         await self.channel_layer.group_discard(
-            self.groups_name,  # Use groups_name here
+            self.room_group_name,
             self.channel_name
         )
+        logging.info(f"Disconnected from room: {self.room_name}")
 
     async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json.get('message')
-        sender = text_data_json.get('sender')
-        message_type = text_data_json.get('type')
-        file_content = text_data_json.get('file_content')  # Update to file_content
+        if not text_data:
+            return
 
+        try:
+            text_data_json = json.loads(text_data)
+            message = text_data_json['message']
+            sender_username = text_data_json['sender']
+        except (json.JSONDecodeError, KeyError) as e:
+            logging.error(f"Error processing received message: {e}")
+            return
+
+        # Create message for sending
         message_data = {
-            'message': message or file_content,  # Use file_content if message is None
-            'sender': sender,
-            'type': message_type
+            'message': message,
+            'sender': sender_username
         }
 
+        # Store message in temporary memory
         if self.room_name not in self.room_messages:
             self.room_messages[self.room_name] = []
         self.room_messages[self.room_name].append(message_data)
 
+        # Send message to room group
         await self.channel_layer.group_send(
-            self.groups_name,
+            self.room_group_name,
             {
                 'type': 'chat_message',
-                'message': message or file_content,  # Use file_content if message is None
-                'sender': sender,
-                'message_type': message_type
+                'message': message,
+                'sender': sender_username
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
         sender = event['sender']
-        message_type = event.get('message_type', 'text')
 
+        # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
-            'sender': sender,
-            'type': message_type
+            'sender': sender
         }))
+
+
 
 
 class Chat_newConsumers(AsyncWebsocketConsumer):
