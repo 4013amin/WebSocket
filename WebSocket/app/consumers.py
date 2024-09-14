@@ -83,8 +83,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
 
-
-
 class Chat_newConsumers(AsyncWebsocketConsumer):
     async def connect(self):
         self.username = self.scope['url_route']['kwargs']['username']
