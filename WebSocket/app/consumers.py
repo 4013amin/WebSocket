@@ -80,16 +80,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
 class Chat_newConsumers(AsyncWebsocketConsumer):
     async def connect(self):
         self.username = self.scope['url_route']['kwargs']['username']
-        self.group_name = f"chat_{self.username}"
-        self.channel_layer.group_add(
-            self.room_id,
+        self.group_name = f"chat_{self.username}"  # استفاده از username برای نام گروه
+        await self.channel_layer.group_add(
+            self.group_name,
             self.channel_name
         )
-
-        self.accept()
+        await self.accept()
 
     async def disconnect(self, close_code):
-        self.channel_layer.group_discard(
+        await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
         )
@@ -98,10 +97,10 @@ class Chat_newConsumers(AsyncWebsocketConsumer):
         if text_data:
             text_data_json = json.loads(text_data)
             username = text_data_json['username']
-            user_groupName = f"chat_{self.username}"
 
-            self.channel_layer.group_send(
-                user_groupName,
+            # ارسال پیام به گروه مربوط به username
+            await self.channel_layer.group_send(
+                f"chat_{username}",
                 {
                     'type': 'chat_message',
                     'message': text_data_json['message'],
@@ -110,4 +109,5 @@ class Chat_newConsumers(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         message = event['message']
-        self.send(text_data=message)
+        # ارسال پیام به کلاینت
+        await self.send(text_data=message)
