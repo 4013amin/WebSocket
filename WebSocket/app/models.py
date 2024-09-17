@@ -1,8 +1,10 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
-class ChatUser(models.Model):
-    username = models.CharField(max_length=255, unique=True)
+class Users(models.Model):
+    username = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.username
+        return self.username.username

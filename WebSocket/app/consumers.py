@@ -1,119 +1,72 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-import logging
-
+from channels.db import database_sync_to_async
+from django.contrib.auth.models import User
+from .models import Users  # Assuming your model is in models.py
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    room_messages = {}
 
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
+        self.username = self.scope['url_route']['kwargs']['username']
 
-        logging.debug(f"Connecting to room: {self.room_name}")
-        logging.debug(f"Group name: {self.room_group_name}")
+        # Join the room group
+        await self.channel_layer.group_add(
+            self.room_group_name,
+            self.channel_name
+        )
 
-        # Join room group
+        # Save the user to the database
         try:
-            await self.channel_layer.group_add(
-                self.room_group_name,
-                self.channel_name
-            )
-            await self.accept()
+            await self.save_message(self.username)
+        except ValueError as e:
+            # Handle the case where the user already exists
+            await self.send(text_data=json.dumps({
+                'error': str(e)
+            }))
+            return
 
-            # Send previous messages to new user
-            if self.room_name in self.room_messages:
-                for message_data in self.room_messages[self.room_name]:
-                    await self.send(text_data=json.dumps(message_data))
-
-            logging.info(f"Connection accepted for room: {self.room_name}")
-        except Exception as e:
-            logging.error(f"Error connecting to WebSocket: {e}")
-            await self.close()
+        await self.accept()
 
     async def disconnect(self, close_code):
-        # Leave room group
+        # Leave the room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
-        logging.info(f"Disconnected from room: {self.room_name}")
 
     async def receive(self, text_data):
-        if not text_data:
-            return
+        text_data_json = json.loads(text_data)
+        message = text_data_json['message']
+        username = self.scope['url_route']['kwargs']['username']
 
-        try:
-            text_data_json = json.loads(text_data)
-            message = text_data_json['message']
-            sender_username = text_data_json['sender']
-        except (json.JSONDecodeError, KeyError) as e:
-            logging.error(f"Error processing received message: {e}")
-            return
-
-        # Create message for sending
-        message_data = {
-            'message': message,
-            'sender': sender_username
-        }
-
-        # Store message in temporary memory
-        if self.room_name not in self.room_messages:
-            self.room_messages[self.room_name] = []
-        self.room_messages[self.room_name].append(message_data)
-
-        # Send message to room group
+        # Send message to the room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
                 'message': message,
-                'sender': sender_username
+                'username': username
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
-        sender = event['sender']
+        username = event['username']
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
-            'sender': sender
+            'username': username
         }))
 
-
-class Chat_newConsumers(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.username = self.scope['url_route']['kwargs']['username']
-        self.group_name = f"chat_{self.username}"  # استفاده از username برای نام گروه
-        await self.channel_layer.group_add(
-            self.group_name,
-            self.channel_name
-        )
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.group_name,
-            self.channel_name
-        )
-
-    async def receive(self, text_data):
-        if text_data:
-            text_data_json = json.loads(text_data)
-            username = text_data_json['username']
-
-            # ارسال پیام به گروه مربوط به username
-            await self.channel_layer.group_send(
-                f"chat_{username}",
-                {
-                    'type': 'chat_message',
-                    'message': text_data_json['message'],
-                }
-            )
-
-    async def chat_message(self, event):
-        message = event['message']
-        # ارسال پیام به کلاینت
-        await self.send(text_data=message)
+    @database_sync_to_async
+    def save_message(self, username):
+        try:
+            user = User.objects.get(username=username)
+            if Users.objects.filter(username=user).exists():
+                raise ValueError(f"User '{username}' has already been saved.")
+            Users.objects.create(username=user)
+        except User.DoesNotExist:
+            raise ValueError(f"User '{username}' does not exist.")
