@@ -8,6 +8,10 @@ from django.http import JsonResponse
 from .models import Users
 
 
+def index(request):
+    return render(request, 'voiceChat.html')
+
+
 def get_registered_users(request):
     users = Users.objects.all().values('username__username', 'created_at')
     user_list = list(users)

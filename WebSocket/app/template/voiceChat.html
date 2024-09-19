@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        input {
+            padding: 10px;
+            width: 80%;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .status {
+            margin-top: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Voice Chat</h2>
+    <input type="text" id="userId" placeholder="Enter your username">
+    <input type="text" id="targetId" placeholder="Enter target user ID">
+    <button id="callButton">Start Voice Call</button>
+    <div class="status" id="status"></div>
+</div>
+
+<script>
+    const callButton = document.getElementById('callButton');
+    const statusDiv = document.getElementById('status');
+
+    callButton.addEventListener('click', () => {
+        const userId = document.getElementById('userId').value;
+        const targetId = document.getElementById('targetId').value;
+
+        if (userId && targetId) {
+            startVoiceCall(userId, targetId);
+        } else {
+            statusDiv.textContent = 'Please enter both your username and target user ID.';
+        }
+    });
+
+    function startVoiceCall(userId, targetId) {
+        const ws = new WebSocket(`ws://192.168.1.110:2020/ws/voice-chat/${userId}/`);
+
+        const localConnection = new RTCPeerConnection();
+
+        navigator.mediaDevices.getUserMedia({audio: true}).then(stream => {
+            stream.getTracks().forEach(track => localConnection.addTrack(track, stream));
+
+            localConnection.createOffer().then(offer => {
+                localConnection.setLocalDescription(offer);
+                ws.send(JSON.stringify({
+                    'message': {'type': 'offer', 'sdp': offer.sdp},
+                    'target_user': targetId
+                }));
+            });
+        });
+
+        ws.onmessage = (event) => {
+            console.log('Message received:', event.data);  // اضافه کردن لاگ برای بررسی پیام دریافتی
+            const data = JSON.parse(event.data);
+            if (data.message && data.message.sdp) {
+                if (data.message.type === 'offer') {
+                    console.log('Received offer:', data.message);  // لاگ برای offer دریافتی
+                    localConnection.setRemoteDescription(new RTCSessionDescription(data.message));
+                    localConnection.createAnswer().then(answer => {
+                        localConnection.setLocalDescription(answer);
+                        ws.send(JSON.stringify({
+                            'message': {'type': 'answer', 'sdp': answer.sdp},
+                            'target_user': targetId
+                        }));
+                        console.log('Sent answer:', answer);  // لاگ برای answer ارسال شده
+                    });
+                } else if (data.message.type === 'answer') {
+                    console.log('Received answer:', data.message);  // لاگ برای answer دریافتی
+                    localConnection.setRemoteDescription(new RTCSessionDescription(data.message));
+                } else if (data.message.type === 'candidate') {
+                    console.log('Received candidate:', data.message);  // لاگ برای candidate دریافتی
+                    localConnection.addIceCandidate(new RTCIceCandidate(data.message));
+                }
+            } else if (data.message === 'Target user is not available.') {
+                statusDiv.textContent = 'Target user is not available.';
+                console.log('Target user is not available');  // لاگ برای خطای عدم موجودیت یوزر
+            }
+        };
+
+        localConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({
+                    'message': {'type': 'candidate', 'candidate': event.candidate},
+                    'target_user': targetId
+                }));
+            }
+        };
+
+        statusDiv.textContent = `Calling user: ${targetId}`;
+
+
+    }
+</script>
+
+</body>
+</html>
