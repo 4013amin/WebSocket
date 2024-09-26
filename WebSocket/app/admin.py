@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Users
+from .models import Message, ChatRoom
 
 
 # Register your models here.
 
-@admin.register(Users)
+@admin.register(Message)
 class UsersAdmin(admin.ModelAdmin):
-    list_display = ['username']
+    list_display = ['room']
