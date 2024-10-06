@@ -1,26 +1,6 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
-from .models import ChatRoom, Message
-
-import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
-from .models import ChatRoom, Message
-
-import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
-from .models import ChatRoom, Message
-
-
-import json
-from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
 from .models import ChatRoom, Message
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -39,21 +19,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Accept the WebSocket connection
         await self.accept()
 
-        # Save user in the database (if necessary)
-        try:
-            await self.save_user(self.username)
-        except ValueError as e:
-            await self.send(text_data=json.dumps({
-                'error': str(e)
-            }))
-            return
-
         # Retrieve previous messages
         previous_messages = await self.get_previous_messages()
         for message in previous_messages:
             await self.send(text_data=json.dumps({
+                'sender': message.user,  # Use the username directly
                 'message': message.content,
-                'username': message.user.username,
                 'timestamp': str(message.timestamp)
             }))
 
@@ -73,55 +44,39 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
             return
 
-        try:
-            await self.save_chat_message(self.username, message)
-        except ValueError as e:
-            await self.send(text_data=json.dumps({
-                'error': str(e)
-            }))
-            return
+        # Save the message
+        await self.save_chat_message(self.username, message)
 
+        # Send message to room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
                 'message': message,
-                'username': self.username
+                'sender': self.username
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
-        username = event['username']
+        sender = event['sender']
 
         await self.send(text_data=json.dumps({
             'message': message,
-            'username': username
+            'sender': sender
         }))
 
     @database_sync_to_async
-    def save_user(self, username):
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise ValueError(f"User '{username}' does not exist.")
-
-    @database_sync_to_async
     def save_chat_message(self, username, content):
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            raise ValueError(f"User '{username}' does not exist.")
-
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
 
-        # Save message
-        Message.objects.create(user=user, room=room, content=content)
+        # Save message with the username directly
+        Message.objects.create(user=username, room=room, content=content)
 
     @database_sync_to_async
     def get_previous_messages(self):
         room = ChatRoom.objects.get(room_name=self.room_name)
-        return list(Message.objects.select_related('user').filter(room=room).order_by('timestamp'))
+        return list(Message.objects.filter(room=room).order_by('timestamp'))
 
 
 # ................................................................................
