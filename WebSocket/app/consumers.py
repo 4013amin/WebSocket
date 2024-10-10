@@ -4,7 +4,6 @@ from channels.db import database_sync_to_async
 from .models import ChatRoom, Message
 
 class ChatConsumer(AsyncWebsocketConsumer):
-
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = f'chat_{self.room_name}'
@@ -23,7 +22,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         previous_messages = await self.get_previous_messages()
         for message in previous_messages:
             await self.send(text_data=json.dumps({
-                'sender': message.user,  # Use the username directly
+                'sender': message.user,
                 'message': message.content,
                 'timestamp': str(message.timestamp)
             }))
@@ -34,28 +33,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-    async def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json.get('message')
+    async def receive(self, text_data=None, bytes_data=None):
+        if text_data:
+            text_data_json = json.loads(text_data)
+            message = text_data_json.get('message')
 
-        if not message:
-            await self.send(text_data=json.dumps({
-                'error': 'No message content'
-            }))
-            return
+            if not message:
+                await self.send(text_data=json.dumps({
+                    'error': 'No message content'
+                }))
+                return
 
-        # Save the message
-        await self.save_chat_message(self.username, message)
+            # Save the message
+            await self.save_chat_message(self.username, message)
 
-        # Send message to room group
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'chat_message',
-                'message': message,
-                'sender': self.username
-            }
-        )
+            # Send message to room group
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'chat_message',
+                    'message': message,
+                    'sender': self.username
+                }
+            )
+        elif bytes_data:
+            # Handle incoming voice data
+            base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'voice_message',
+                    'voice_data': base64_voice_data,
+                    'sender': self.username
+                }
+            )
 
     async def chat_message(self, event):
         message = event['message']
@@ -66,17 +78,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'sender': sender
         }))
 
+    async def voice_message(self, event):
+        voice_data = event['voice_data']
+        sender = event['sender']
+
+        # Send the voice data to the client
+        await self.send(text_data=json.dumps({
+            'voice_data': voice_data,  # مطمئن شوید اینجا voice_data درست است
+            'sender': sender
+        }))
+
     @database_sync_to_async
     def save_chat_message(self, username, content):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
-
-        # Save message with the username directly
         Message.objects.create(user=username, room=room, content=content)
 
     @database_sync_to_async
     def get_previous_messages(self):
         room = ChatRoom.objects.get(room_name=self.room_name)
         return list(Message.objects.filter(room=room).order_by('timestamp'))
+
 
 
 # ................................................................................
