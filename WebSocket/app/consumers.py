@@ -3,6 +3,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message
 
+
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
@@ -97,8 +98,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_previous_messages(self):
         room = ChatRoom.objects.get(room_name=self.room_name)
         return list(Message.objects.filter(room=room).order_by('timestamp'))
-
-
 
 # ................................................................................
 #
