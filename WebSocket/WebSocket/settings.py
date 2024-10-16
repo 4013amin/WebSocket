@@ -34,9 +34,8 @@ ALLOWED_HOSTS = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # یا هر پورتی که از آن استفاده می‌کنید
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
-    # آی‌پی‌های دیگری که ممکن است استفاده کنید
 ]
 
 CORS_ALLOW_CREDENTIALS = True
