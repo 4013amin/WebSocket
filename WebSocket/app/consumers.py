@@ -1,4 +1,5 @@
 import json
+import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message
@@ -61,6 +62,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Handle incoming voice data
             base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
 
+            # Save voice message (implement if needed)
+            await self.save_voice_message(self.username, base64_voice_data)
+
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -85,7 +89,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Send the voice data to the client
         await self.send(text_data=json.dumps({
-            'voice_data': voice_data,  # مطمئن شوید اینجا voice_data درست است
+            'voice_data': voice_data,
             'sender': sender
         }))
 
@@ -93,6 +97,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def save_chat_message(self, username, content):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
         Message.objects.create(user=username, room=room, content=content)
+
+    @database_sync_to_async
+    def save_voice_message(self, username, voice_data):
+        room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
+        # Assume you have a VoiceMessage model
+        VoiceMessage.objects.create(user=username, room=room, voice_data=voice_data)
 
     @database_sync_to_async
     def get_previous_messages(self):
