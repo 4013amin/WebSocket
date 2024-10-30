@@ -16,3 +16,13 @@ class Message(models.Model):
 
     def __str__(self):
         return f'{self.user}: {self.content}'
+
+
+class VoiceMessage(models.Model):
+    user = models.CharField(max_length=255)
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
+    voice_data = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.user} - Voice Message at {self.timestamp}'

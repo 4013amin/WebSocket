@@ -2,7 +2,7 @@ import json
 import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ChatRoom, Message
+from .models import ChatRoom, Message, VoiceMessage  # اطمینان حاصل کنید که VoiceMessage نیز اینجا وارد شده است
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -29,6 +29,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'timestamp': str(message.timestamp)
             }))
 
+        # Retrieve previous voice messages
+        previous_voice_messages = await self.get_previous_voice_messages()
+        for voice_message in previous_voice_messages:
+            await self.send(text_data=json.dumps({
+                'sender': voice_message.user,
+                'voice_data': voice_message.voice_data,
+                'timestamp': str(voice_message.timestamp)
+            }))
+
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -37,6 +46,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
+            # فقط در صورتی که text_data وجود داشته باشد این بخش را اجرا کن
             text_data_json = json.loads(text_data)
             message = text_data_json.get('message')
 
@@ -46,10 +56,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
-            # Save the message
+            # ذخیره پیام متنی
             await self.save_chat_message(self.username, message)
 
-            # Send message to room group
+            # ارسال پیام به گروه چت
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -58,21 +68,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'sender': self.username
                 }
             )
+
         elif bytes_data:
-            # Handle incoming voice data
-            base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
+            # بخش پردازش داده‌های صوتی
+            try:
+                base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
 
-            # Save voice message (implement if needed)
-            await self.save_voice_message(self.username, base64_voice_data)
+                # ذخیره پیام صوتی
+                await self.save_voice_message(self.username, base64_voice_data)
 
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'voice_message',
-                    'voice_data': base64_voice_data,
-                    'sender': self.username
-                }
-            )
+                # ارسال پیام صوتی به گروه چت
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'voice_message',
+                        'voice_data': base64_voice_data,
+                        'sender': self.username
+                    }
+                )
+            except Exception as e:
+                await self.send(text_data=json.dumps({
+                    'error': f'Voice data processing failed: {str(e)}'
+                }))
 
     async def chat_message(self, event):
         message = event['message']
@@ -101,13 +118,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_voice_message(self, username, voice_data):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
-        # Assume you have a VoiceMessage model
         VoiceMessage.objects.create(user=username, room=room, voice_data=voice_data)
 
     @database_sync_to_async
     def get_previous_messages(self):
-        room = ChatRoom.objects.get(room_name=self.room_name)
+        room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
         return list(Message.objects.filter(room=room).order_by('timestamp'))
+
+    @database_sync_to_async
+    def get_previous_voice_messages(self):
+        room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
+        return list(VoiceMessage.objects.filter(room=room).order_by('timestamp'))
+
 
 # ................................................................................
 #
