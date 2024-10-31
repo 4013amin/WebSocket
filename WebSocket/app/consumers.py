@@ -2,7 +2,7 @@ import json
 import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ChatRoom, Message, VoiceMessage  # اطمینان حاصل کنید که VoiceMessage نیز اینجا وارد شده است
+from .models import ChatRoom, Message, VoiceMessage
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -19,6 +19,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Accept the WebSocket connection
         await self.accept()
+        print(f'User {self.username} connected to {self.room_name}')
 
         # Retrieve previous messages
         previous_messages = await self.get_previous_messages()
@@ -43,41 +44,49 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
+        print(f'User {self.username} disconnected from {self.room_name}')
 
     async def receive(self, text_data=None, bytes_data=None):
         if text_data:
-            # فقط در صورتی که text_data وجود داشته باشد این بخش را اجرا کن
-            text_data_json = json.loads(text_data)
-            message = text_data_json.get('message')
-
-            if not message:
-                await self.send(text_data=json.dumps({
-                    'error': 'No message content'
-                }))
-                return
-
-            # ذخیره پیام متنی
-            await self.save_chat_message(self.username, message)
-
-            # ارسال پیام به گروه چت
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat_message',
-                    'message': message,
-                    'sender': self.username
-                }
-            )
-
-        elif bytes_data:
-            # بخش پردازش داده‌های صوتی
             try:
+                text_data_json = json.loads(text_data)
+                message = text_data_json.get('message')
+
+                if not message:
+                    await self.send(text_data=json.dumps({
+                        'error': 'No message content'
+                    }))
+                    return
+
+                # Save text message
+                await self.save_chat_message(self.username, message)
+
+                # Send text message to chat group
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'message': message,
+                        'sender': self.username
+                    }
+                )
+            except json.JSONDecodeError as e:
+                await self.send(text_data=json.dumps({
+                    'error': f'JSON decode error: {str(e)}'
+                }))
+            except Exception as e:
+                await self.send(text_data=json.dumps({
+                    'error': f'Failed to process text message: {str(e)}'
+                }))
+        elif bytes_data:
+            try:
+                # Encode voice data to Base64
                 base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
 
-                # ذخیره پیام صوتی
+                # Save voice message
                 await self.save_voice_message(self.username, base64_voice_data)
 
-                # ارسال پیام صوتی به گروه چت
+                # Send voice message to chat group
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
@@ -90,6 +99,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({
                     'error': f'Voice data processing failed: {str(e)}'
                 }))
+        else:
+            await self.send(text_data=json.dumps({
+                'error': 'No data received'
+            }))
 
     async def chat_message(self, event):
         message = event['message']
@@ -129,7 +142,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def get_previous_voice_messages(self):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
         return list(VoiceMessage.objects.filter(room=room).order_by('timestamp'))
-
 
 # ................................................................................
 #
