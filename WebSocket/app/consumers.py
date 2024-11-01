@@ -2,7 +2,7 @@ import json
 import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ChatRoom, Message, VoiceMessage
+from .models import ChatRoom, Message, ImageMessage
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -21,7 +21,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         print(f'User {self.username} connected to {self.room_name}')
 
-        # Retrieve previous messages
+        # Retrieve previous text messages
         previous_messages = await self.get_previous_messages()
         for message in previous_messages:
             await self.send(text_data=json.dumps({
@@ -30,13 +30,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'timestamp': str(message.timestamp)
             }))
 
-        # Retrieve previous voice messages
-        previous_voice_messages = await self.get_previous_voice_messages()
-        for voice_message in previous_voice_messages:
+        # Retrieve previous images
+        previous_images = await self.get_previous_images()
+        for image in previous_images:
             await self.send(text_data=json.dumps({
-                'sender': voice_message.user,
-                'voice_data': voice_message.voice_data,
-                'timestamp': str(voice_message.timestamp)
+                'sender': image.user,
+                'image_data': image.image_data,
+                'timestamp': str(image.timestamp)
             }))
 
     async def disconnect(self, close_code):
@@ -51,53 +51,41 @@ class ChatConsumer(AsyncWebsocketConsumer):
             try:
                 text_data_json = json.loads(text_data)
                 message = text_data_json.get('message')
+                image_data = text_data_json.get('image_data')
 
-                if not message:
+                if message:
+                    # Save and send text message
+                    await self.save_chat_message(self.username, message)
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message': message,
+                            'sender': self.username
+                        }
+                    )
+                elif image_data:
+                    # Save and send image message
+                    await self.save_image_message(self.username, image_data)
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'image_message',
+                            'image_data': image_data,
+                            'sender': self.username
+                        }
+                    )
+                else:
                     await self.send(text_data=json.dumps({
-                        'error': 'No message content'
+                        'error': 'No valid content provided'
                     }))
-                    return
-
-                # Save text message
-                await self.save_chat_message(self.username, message)
-
-                # Send text message to chat group
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'chat_message',
-                        'message': message,
-                        'sender': self.username
-                    }
-                )
             except json.JSONDecodeError as e:
                 await self.send(text_data=json.dumps({
                     'error': f'JSON decode error: {str(e)}'
                 }))
             except Exception as e:
                 await self.send(text_data=json.dumps({
-                    'error': f'Failed to process text message: {str(e)}'
-                }))
-        elif bytes_data:
-            try:
-                # Encode voice data to Base64
-                base64_voice_data = base64.b64encode(bytes_data).decode('utf-8')
-
-                # Save voice message
-                await self.save_voice_message(self.username, base64_voice_data)
-
-                # Send voice message to chat group
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'voice_message',
-                        'voice_data': base64_voice_data,
-                        'sender': self.username
-                    }
-                )
-            except Exception as e:
-                await self.send(text_data=json.dumps({
-                    'error': f'Voice data processing failed: {str(e)}'
+                    'error': f'Failed to process message: {str(e)}'
                 }))
         else:
             await self.send(text_data=json.dumps({
@@ -113,13 +101,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'sender': sender
         }))
 
-    async def voice_message(self, event):
-        voice_data = event['voice_data']
+    async def image_message(self, event):
+        image_data = event['image_data']
         sender = event['sender']
 
-        # Send the voice data to the client
         await self.send(text_data=json.dumps({
-            'voice_data': voice_data,
+            'image_data': image_data,
             'sender': sender
         }))
 
@@ -129,9 +116,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         Message.objects.create(user=username, room=room, content=content)
 
     @database_sync_to_async
-    def save_voice_message(self, username, voice_data):
+    def save_image_message(self, username, image_data):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
-        VoiceMessage.objects.create(user=username, room=room, voice_data=voice_data)
+        ImageMessage.objects.create(user=username, room=room, image_data=image_data)
 
     @database_sync_to_async
     def get_previous_messages(self):
@@ -139,9 +126,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return list(Message.objects.filter(room=room).order_by('timestamp'))
 
     @database_sync_to_async
-    def get_previous_voice_messages(self):
+    def get_previous_images(self):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
-        return list(VoiceMessage.objects.filter(room=room).order_by('timestamp'))
+        return list(ImageMessage.objects.filter(room=room).order_by('timestamp'))
+
 
 # ................................................................................
 #

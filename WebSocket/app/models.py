@@ -15,5 +15,12 @@ class Message(models.Model):
 class VoiceMessage(models.Model):
     user = models.CharField(max_length=255)
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    voice_data = models.TextField()  # ذخیره داده صوتی به عنوان رشته Base64
+    voice_data = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
+class ImageMessage(models.Model):
+    user = models.CharField(max_length=255)
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
+    image_data = models.TextField()  # ذخیره عکس به فرمت Base64
     timestamp = models.DateTimeField(auto_now_add=True)
