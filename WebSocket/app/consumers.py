@@ -130,7 +130,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         room, _ = ChatRoom.objects.get_or_create(room_name=self.room_name)
         return list(ImageMessage.objects.filter(room=room).order_by('timestamp'))
 
-
 # ................................................................................
 #
 
