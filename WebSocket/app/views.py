@@ -4,8 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
 from .serializer import UserSerializer
-# from django.http import JsonResponse
-# from .models import Users
+from .models import Message
 #
 #
 # def index(request):
@@ -16,3 +15,9 @@ from .serializer import UserSerializer
 #     users = Users.objects.all().values('username__username', 'created_at')
 #     user_list = list(users)
 #     return JsonResponse(user_list, safe=False)
+
+
+def getUsers(username):
+    users = Message.objects.all().exclude(user=username)
+    serializer = UserSerializer(users, many=True)
+    return serializer.data      
